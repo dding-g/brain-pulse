@@ -1,5 +1,5 @@
 import { Pressable, Text, StyleSheet, type ViewStyle } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import { Haptics } from '@/lib/haptics';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants/theme';
 
 interface ButtonProps {

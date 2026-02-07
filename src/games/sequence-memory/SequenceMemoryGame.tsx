@@ -8,7 +8,7 @@ import Animated, {
   withSequence,
   FadeIn,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import { Haptics } from '@/lib/haptics';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants/theme';
 import type { GameProps, GameResult } from '@/games/types';
 import { GameHUD, useElapsedMs } from '@/games/components/GameHUD';

@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, Redirect } from 'expo-router';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Button } from '@/components/ui/Button';
 import { ScoreDisplay } from '@/components/ui/ScoreDisplay';
@@ -21,11 +21,9 @@ export default function HomeScreen() {
   const [totalSessions, setTotalSessions] = useState(0);
   const [todaySession, setTodaySession] = useState<SessionData | null>(null);
 
-  useEffect(() => {
-    if (!isOnboardingComplete()) {
-      router.replace('/onboarding');
-    }
-  }, [router]);
+  if (!isOnboardingComplete()) {
+    return <Redirect href="/onboarding" />;
+  }
 
   const loadData = useCallback(() => {
     setStreak(getStreakCount());
