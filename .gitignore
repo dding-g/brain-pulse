@@ -1,52 +1,5 @@
-# Dependencies
 node_modules/
-bun.lockb
-
-# Expo
-.expo/
 dist/
-web-build/
-expo-env.d.ts
-
-# Native builds
-ios/
-android/
-
-# Native signing
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-# Metro
-.metro-health-check*
-
-# Debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
+src-tauri/target/
 .DS_Store
-*.pem
-
-# Environment files
-.env*.local
-.env.production
-
-# TypeScript
-*.tsbuildinfo
-
-# EAS
-eas-*.json
-
-# Test coverage
-coverage/
-
-# Editor
-.vscode/
-.idea/
-*.swp
-*.swo
+*.log
