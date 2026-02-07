@@ -1,0 +1,175 @@
+import { useState } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import { ScreenContainer } from '@/components/layout/ScreenContainer';
+import { Button } from '@/components/ui/Button';
+import { Colors, Typography, Spacing, BorderRadius } from '@/constants/theme';
+import { setConditionReport } from '@/features/storage/mmkv';
+import type { ConditionReport } from '@/games/types';
+
+type Rating = 1 | 2 | 3 | 4 | 5;
+
+const QUESTIONS = [
+  { key: 'sleepQuality' as const, label: '수면 품질', labelEn: 'Sleep Quality', emojis: ['😵', '😴', '😐', '🙂', '😊'] },
+  { key: 'energyLevel' as const, label: '에너지 레벨', labelEn: 'Energy Level', emojis: ['🪫', '😮‍💨', '😐', '💪', '⚡'] },
+  { key: 'stressLevel' as const, label: '스트레스', labelEn: 'Stress Level', emojis: ['😌', '🙂', '😐', '😰', '🤯'] },
+];
+
+export default function ConditionCheckScreen() {
+  const router = useRouter();
+  const [answers, setAnswers] = useState<Partial<ConditionReport>>({});
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+
+  const question = QUESTIONS[currentQuestion];
+  const allAnswered = QUESTIONS.every((q) => answers[q.key] !== undefined);
+
+  function handleSelect(value: Rating) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setAnswers((prev) => ({ ...prev, [question.key]: value }));
+
+    if (currentQuestion < QUESTIONS.length - 1) {
+      setTimeout(() => setCurrentQuestion((prev) => prev + 1), 300);
+    }
+  }
+
+  function handleContinue() {
+    const report = answers as ConditionReport;
+    setConditionReport(report);
+    router.push('/mode-select');
+  }
+
+  return (
+    <ScreenContainer>
+      <View style={styles.header}>
+        <Text style={styles.title}>컨디션 체크</Text>
+        <Text style={styles.subtitle}>
+          {currentQuestion + 1} / {QUESTIONS.length}
+        </Text>
+      </View>
+
+      <View style={styles.questionContainer}>
+        <Text style={styles.questionLabel}>{question.label}</Text>
+        <Text style={styles.questionLabelEn}>{question.labelEn}</Text>
+
+        <View style={styles.emojiRow}>
+          {question.emojis.map((emoji, i) => {
+            const value = (i + 1) as Rating;
+            const selected = answers[question.key] === value;
+            return (
+              <Pressable
+                key={i}
+                style={[styles.emojiButton, selected && styles.emojiSelected]}
+                onPress={() => handleSelect(value)}
+              >
+                <Text style={styles.emoji}>{emoji}</Text>
+                <Text style={[styles.emojiLabel, selected && styles.emojiLabelSelected]}>
+                  {value}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={styles.navigation}>
+        <View style={styles.dots}>
+          {QUESTIONS.map((_, i) => (
+            <Pressable key={i} onPress={() => setCurrentQuestion(i)}>
+              <View
+                style={[
+                  styles.dot,
+                  i === currentQuestion && styles.dotActive,
+                  answers[QUESTIONS[i].key] !== undefined && styles.dotCompleted,
+                ]}
+              />
+            </Pressable>
+          ))}
+        </View>
+
+        {allAnswered && (
+          <Button title="다음" onPress={handleContinue} size="lg" />
+        )}
+      </View>
+    </ScreenContainer>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: {
+    alignItems: 'center',
+    marginTop: Spacing.lg,
+  },
+  title: {
+    ...Typography.heading2,
+    color: Colors.textPrimary,
+  },
+  subtitle: {
+    ...Typography.caption,
+    color: Colors.textTertiary,
+    marginTop: Spacing.xs,
+  },
+  questionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: Spacing.lg,
+  },
+  questionLabel: {
+    ...Typography.heading2,
+    color: Colors.textPrimary,
+  },
+  questionLabelEn: {
+    ...Typography.body,
+    color: Colors.textTertiary,
+  },
+  emojiRow: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginTop: Spacing.xl,
+  },
+  emojiButton: {
+    alignItems: 'center',
+    gap: Spacing.xs,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 2,
+    borderColor: Colors.transparent,
+  },
+  emojiSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.backgroundLight,
+  },
+  emoji: {
+    fontSize: 32,
+  },
+  emojiLabel: {
+    ...Typography.caption,
+    color: Colors.textTertiary,
+  },
+  emojiLabelSelected: {
+    color: Colors.primary,
+  },
+  navigation: {
+    gap: Spacing.lg,
+    marginBottom: Spacing.xl,
+  },
+  dots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.border,
+  },
+  dotActive: {
+    width: 24,
+    backgroundColor: Colors.primaryLight,
+  },
+  dotCompleted: {
+    backgroundColor: Colors.primary,
+  },
+});

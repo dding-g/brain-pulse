@@ -1,0 +1,12 @@
+name = "brain-pulse-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "BRAIN_PULSE_DB"
+database_name = "brain-pulse-db"
+database_id = "placeholder-id"
+
+[[kv_namespaces]]
+binding = "BRAIN_PULSE_KV"
+id = "placeholder-id"
