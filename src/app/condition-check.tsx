@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Button } from '@/components/ui/Button';
+import { ProgressDots } from '@/components/ui/ProgressDots';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants/theme';
 import { setConditionReport } from '@/features/storage/mmkv';
 import type { ConditionReport } from '@/games/types';
@@ -22,6 +23,7 @@ export default function ConditionCheckScreen() {
   const [currentQuestion, setCurrentQuestion] = useState(0);
 
   const question = QUESTIONS[currentQuestion];
+  const currentAnswer = answers[question.key];
   const allAnswered = QUESTIONS.every((q) => answers[q.key] !== undefined);
 
   function handleSelect(value: Rating) {
@@ -39,14 +41,23 @@ export default function ConditionCheckScreen() {
     router.push('/mode-select');
   }
 
+  function handleBack() {
+    if (currentQuestion > 0) {
+      setCurrentQuestion((prev) => prev - 1);
+    } else {
+      router.back();
+    }
+  }
+
   return (
     <ScreenContainer>
       <View style={styles.header}>
+        <Button title="<" variant="ghost" size="sm" onPress={handleBack} />
         <Text style={styles.title}>컨디션 체크</Text>
-        <Text style={styles.subtitle}>
-          {currentQuestion + 1} / {QUESTIONS.length}
-        </Text>
+        <View style={styles.placeholder} />
       </View>
+
+      <ProgressDots total={QUESTIONS.length} current={currentQuestion} />
 
       <View style={styles.questionContainer}>
         <Text style={styles.questionLabel}>{question.label}</Text>
@@ -55,7 +66,7 @@ export default function ConditionCheckScreen() {
         <View style={styles.emojiRow}>
           {question.emojis.map((emoji, i) => {
             const value = (i + 1) as Rating;
-            const selected = answers[question.key] === value;
+            const selected = currentAnswer === value;
             return (
               <Pressable
                 key={i}
@@ -73,20 +84,6 @@ export default function ConditionCheckScreen() {
       </View>
 
       <View style={styles.navigation}>
-        <View style={styles.dots}>
-          {QUESTIONS.map((_, i) => (
-            <Pressable key={i} onPress={() => setCurrentQuestion(i)}>
-              <View
-                style={[
-                  styles.dot,
-                  i === currentQuestion && styles.dotActive,
-                  answers[QUESTIONS[i].key] !== undefined && styles.dotCompleted,
-                ]}
-              />
-            </Pressable>
-          ))}
-        </View>
-
         {allAnswered && (
           <Button title="다음" onPress={handleContinue} size="lg" />
         )}
@@ -97,17 +94,17 @@ export default function ConditionCheckScreen() {
 
 const styles = StyleSheet.create({
   header: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: Spacing.lg,
+    justifyContent: 'space-between',
+    marginBottom: Spacing.md,
   },
   title: {
     ...Typography.heading2,
     color: Colors.textPrimary,
   },
-  subtitle: {
-    ...Typography.caption,
-    color: Colors.textTertiary,
-    marginTop: Spacing.xs,
+  placeholder: {
+    width: 40,
   },
   questionContainer: {
     flex: 1,
@@ -153,23 +150,5 @@ const styles = StyleSheet.create({
   navigation: {
     gap: Spacing.lg,
     marginBottom: Spacing.xl,
-  },
-  dots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.border,
-  },
-  dotActive: {
-    width: 24,
-    backgroundColor: Colors.primaryLight,
-  },
-  dotCompleted: {
-    backgroundColor: Colors.primary,
   },
 });

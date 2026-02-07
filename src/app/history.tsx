@@ -1,22 +1,25 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, Modal, Pressable } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { Colors, Typography, Spacing } from '@/constants/theme';
-import { getScoreColor } from '@/constants/theme';
-import { getDailySummaries } from '@/features/storage/sqlite';
-import { formatDate } from '@/lib/utils';
-import type { DailySummary } from '@/games/types';
+import { Colors, Typography, Spacing, BorderRadius, getScoreColor } from '@/constants/theme';
+import { getRecentSessions } from '@/features/storage/sqlite';
+import { getGameById } from '@/games/registry';
+import { formatDate, formatDuration } from '@/lib/utils';
+import type { SessionData } from '@/games/types';
 
 export default function HistoryScreen() {
   const router = useRouter();
-  const [summaries, setSummaries] = useState<DailySummary[]>([]);
+  const [sessions, setSessions] = useState<SessionData[]>([]);
+  const [selectedSession, setSelectedSession] = useState<SessionData | null>(null);
 
-  useEffect(() => {
-    getDailySummaries(30).then(setSummaries);
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      getRecentSessions(50).then(setSessions);
+    }, []),
+  );
 
   return (
     <ScreenContainer>
@@ -26,7 +29,7 @@ export default function HistoryScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      {summaries.length === 0 ? (
+      {sessions.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyEmoji}>📊</Text>
           <Text style={styles.emptyText}>아직 기록이 없습니다</Text>
@@ -34,27 +37,104 @@ export default function HistoryScreen() {
         </View>
       ) : (
         <FlatList
-          data={summaries}
-          keyExtractor={(item) => item.date}
+          data={sessions}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
-            <Card style={styles.dayCard}>
-              <View style={styles.dayRow}>
+            <Card
+              style={styles.sessionCard}
+              onPress={() => setSelectedSession(item)}
+            >
+              <View style={styles.sessionRow}>
                 <View>
-                  <Text style={styles.dayDate}>{formatDate(item.date)}</Text>
-                  <Text style={styles.dayCount}>{item.sessionCount} sessions</Text>
-                </View>
-                <View style={styles.dayScore}>
-                  <Text style={[styles.dayScoreValue, { color: getScoreColor(item.avgScore) }]}>
-                    {Math.round(item.avgScore)}
+                  <Text style={styles.sessionDate}>
+                    {formatDate(item.startedAt.slice(0, 10))}
                   </Text>
-                  <Text style={styles.dayScoreLabel}>avg</Text>
+                  <Text style={styles.sessionTime}>
+                    {new Date(item.startedAt).toLocaleTimeString('ko-KR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                  <Text style={styles.sessionMode}>
+                    {item.mode} - {item.gameResults.length} games
+                  </Text>
+                </View>
+                <View style={styles.sessionScore}>
+                  <Text
+                    style={[
+                      styles.sessionScoreValue,
+                      { color: getScoreColor(item.compositeScore) },
+                    ]}
+                  >
+                    {Math.round(item.compositeScore)}
+                  </Text>
                 </View>
               </View>
             </Card>
           )}
         />
       )}
+
+      <Modal
+        visible={selectedSession !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setSelectedSession(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {selectedSession && (
+              <>
+                <Text style={styles.modalTitle}>세션 상세</Text>
+                <Text style={styles.modalDate}>
+                  {formatDate(selectedSession.startedAt.slice(0, 10))}
+                </Text>
+                <Text
+                  style={[
+                    styles.modalScore,
+                    { color: getScoreColor(selectedSession.compositeScore) },
+                  ]}
+                >
+                  {Math.round(selectedSession.compositeScore)}
+                </Text>
+
+                <View style={styles.modalBreakdown}>
+                  {selectedSession.gameResults.map((result) => {
+                    const gameDef = getGameById(result.gameId);
+                    return (
+                      <View key={result.gameId} style={styles.modalGameRow}>
+                        <Text style={styles.modalGameName}>
+                          {gameDef?.nameKo ?? result.gameId}
+                        </Text>
+                        <View style={styles.modalGameStats}>
+                          <Text style={styles.modalGameAccuracy}>
+                            {Math.round(result.accuracy * 100)}%
+                          </Text>
+                          <Text
+                            style={[
+                              styles.modalGameScore,
+                              { color: getScoreColor(result.score) },
+                            ]}
+                          >
+                            {result.score}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+
+                <Button
+                  title="닫기"
+                  onPress={() => setSelectedSession(null)}
+                  variant="secondary"
+                />
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </ScreenContainer>
   );
 }
@@ -94,31 +174,87 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingBottom: Spacing.xl,
   },
-  dayCard: {
+  sessionCard: {
     padding: Spacing.md,
   },
-  dayRow: {
+  sessionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  dayDate: {
+  sessionDate: {
     ...Typography.bodyBold,
     color: Colors.textPrimary,
   },
-  dayCount: {
+  sessionTime: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  sessionMode: {
     ...Typography.caption,
     color: Colors.textTertiary,
     marginTop: 2,
   },
-  dayScore: {
+  sessionScore: {
     alignItems: 'center',
   },
-  dayScoreValue: {
+  sessionScoreValue: {
     ...Typography.scoreMini,
   },
-  dayScoreLabel: {
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: Colors.overlay,
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    padding: Spacing.xl,
+    gap: Spacing.md,
+    maxHeight: '80%',
+  },
+  modalTitle: {
+    ...Typography.heading2,
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  modalDate: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+  },
+  modalScore: {
+    ...Typography.scoreDisplay,
+    textAlign: 'center',
+  },
+  modalBreakdown: {
+    gap: Spacing.sm,
+    marginVertical: Spacing.md,
+  },
+  modalGameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+  },
+  modalGameName: {
+    ...Typography.body,
+    color: Colors.textPrimary,
+  },
+  modalGameStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  modalGameAccuracy: {
     ...Typography.caption,
-    color: Colors.textTertiary,
+    color: Colors.textSecondary,
+  },
+  modalGameScore: {
+    ...Typography.bodyBold,
   },
 });

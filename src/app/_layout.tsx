@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet } from 'react-native';
 import { Colors } from '@/constants/theme';
 import { initDatabase } from '@/features/storage/sqlite';
+import { SessionProvider } from '@/features/session/context';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -25,14 +26,16 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: Colors.background },
-          animation: 'slide_from_right',
-        }}
-      />
+      <SessionProvider>
+        <StatusBar style="light" />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: Colors.background },
+            animation: 'slide_from_right',
+          }}
+        />
+      </SessionProvider>
     </GestureHandlerRootView>
   );
 }

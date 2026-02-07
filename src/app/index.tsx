@@ -1,15 +1,37 @@
+import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Button } from '@/components/ui/Button';
 import { ScoreDisplay } from '@/components/ui/ScoreDisplay';
 import { Colors, Typography, Spacing } from '@/constants/theme';
 import { getStreakCount, getTotalSessions } from '@/features/storage/mmkv';
+import { getRecentSessions } from '@/features/storage/sqlite';
+import { getTodayString } from '@/lib/utils';
+import type { SessionData } from '@/games/types';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const streak = getStreakCount();
-  const totalSessions = getTotalSessions();
+  const [streak, setStreak] = useState(0);
+  const [totalSessions, setTotalSessions] = useState(0);
+  const [todaySession, setTodaySession] = useState<SessionData | null>(null);
+
+  const loadData = useCallback(() => {
+    setStreak(getStreakCount());
+    setTotalSessions(getTotalSessions());
+
+    const today = getTodayString();
+    getRecentSessions(5).then((sessions) => {
+      const todayResult = sessions.find(
+        (s) => s.startedAt.slice(0, 10) === today,
+      );
+      setTodaySession(todayResult ?? null);
+    });
+  }, []);
+
+  useFocusEffect(loadData);
+
+  const hasTodaySession = todaySession !== null;
 
   return (
     <ScreenContainer>
@@ -19,10 +41,16 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.center}>
-        {totalSessions > 0 ? (
+        {hasTodaySession ? (
           <View style={styles.lastScore}>
-            <Text style={styles.lastScoreLabel}>Last Score</Text>
+            <Text style={styles.lastScoreLabel}>TODAY'S SCORE</Text>
+            <ScoreDisplay score={todaySession.compositeScore} size="lg" />
+          </View>
+        ) : totalSessions > 0 ? (
+          <View style={styles.lastScore}>
+            <Text style={styles.lastScoreLabel}>LAST SCORE</Text>
             <ScoreDisplay score={0} size="lg" />
+            <Text style={styles.noTodayText}>오늘 아직 체크하지 않았어요</Text>
           </View>
         ) : (
           <View style={styles.welcomeBox}>
@@ -51,7 +79,7 @@ export default function HomeScreen() {
 
       <View style={styles.actions}>
         <Button
-          title="뇌 컨디션 체크 시작"
+          title={hasTodaySession ? '다시 체크하기' : '뇌 컨디션 체크 시작'}
           onPress={() => router.push('/condition-check')}
           size="lg"
         />
@@ -103,6 +131,11 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: 2,
+  },
+  noTodayText: {
+    ...Typography.caption,
+    color: Colors.textTertiary,
+    marginTop: Spacing.sm,
   },
   welcomeBox: {
     alignItems: 'center',

@@ -1,40 +1,83 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
-import { Button } from '@/components/ui/Button';
 import { ProgressDots } from '@/components/ui/ProgressDots';
 import { Colors, Typography, Spacing } from '@/constants/theme';
+import { useSession } from '@/features/session/context';
+import { getGamesForMode } from '@/games/registry';
+import { getDifficultyForGame } from '@/features/adaptive/difficulty';
+import type { GameResult } from '@/games/types';
 
 export default function GameSessionScreen() {
   const router = useRouter();
+  const { state, completeGame } = useSession();
 
-  // TODO: Implement actual game session logic
-  // This is a placeholder that will be replaced by the game-developer agent
+  const games = useMemo(
+    () => getGamesForMode(state.mode ?? 'activation'),
+    [state.mode],
+  );
+
+  const currentGame = games[state.currentGameIndex];
+  const totalGames = games.length;
+  const isLastGame = state.currentGameIndex >= totalGames - 1;
+
+  const difficulty = currentGame ? getDifficultyForGame(currentGame.id) : 1;
+
+  const handleComplete = useCallback(
+    (result: GameResult) => {
+      completeGame(result);
+
+      if (isLastGame) {
+        router.replace('/report');
+      } else {
+        router.push('/game-transition');
+      }
+    },
+    [completeGame, isLastGame, router],
+  );
+
+  const handleExit = useCallback(() => {
+    Alert.alert(
+      '세션 종료',
+      '진행 중인 세션을 종료하시겠습니까?\n결과가 저장되지 않습니다.',
+      [
+        { text: '계속하기', style: 'cancel' },
+        {
+          text: '종료',
+          style: 'destructive',
+          onPress: () => router.replace('/'),
+        },
+      ],
+    );
+  }, [router]);
+
+  if (!currentGame) {
+    return (
+      <ScreenContainer centered>
+        <Text style={styles.errorText}>게임을 불러올 수 없습니다</Text>
+      </ScreenContainer>
+    );
+  }
+
+  const GameComponent = currentGame.component;
 
   return (
-    <ScreenContainer centered>
-      <ProgressDots total={4} current={0} />
-
-      <View style={styles.content}>
-        <Text style={styles.title}>Game Session</Text>
-        <Text style={styles.subtitle}>게임 세션이 여기에 표시됩니다</Text>
-        <Text style={styles.description}>
-          Mini-games will load here during a session.{'\n'}
-          Each game runs for up to 30 seconds.
-        </Text>
+    <ScreenContainer>
+      <View style={styles.header}>
+        <ProgressDots total={totalGames} current={state.currentGameIndex} />
+        <View style={styles.gameInfo}>
+          <Text style={styles.gameName}>{currentGame.nameKo}</Text>
+          <Text style={styles.gameNameEn}>{currentGame.name}</Text>
+        </View>
       </View>
 
-      <View style={styles.actions}>
-        <Button
-          title="Skip to Report (Dev)"
-          onPress={() => router.push('/report')}
-          variant="secondary"
-        />
-        <Button
-          title="나가기"
-          onPress={() => router.back()}
-          variant="ghost"
-          size="sm"
+      <View style={styles.gameContainer}>
+        <GameComponent
+          key={`${currentGame.id}-${state.currentGameIndex}`}
+          difficulty={difficulty}
+          onComplete={handleComplete}
+          onExit={handleExit}
         />
       </View>
     </ScreenContainer>
@@ -42,28 +85,28 @@ export default function GameSessionScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: {
+  header: {
     alignItems: 'center',
-    gap: Spacing.md,
-    marginVertical: Spacing.xxl,
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
   },
-  title: {
-    ...Typography.heading2,
+  gameInfo: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  gameName: {
+    ...Typography.heading3,
     color: Colors.textPrimary,
   },
-  subtitle: {
-    ...Typography.body,
-    color: Colors.textSecondary,
-  },
-  description: {
+  gameNameEn: {
     ...Typography.caption,
     color: Colors.textTertiary,
-    textAlign: 'center',
-    lineHeight: 20,
   },
-  actions: {
-    gap: Spacing.md,
-    width: '100%',
-    paddingHorizontal: Spacing.lg,
+  gameContainer: {
+    flex: 1,
+  },
+  errorText: {
+    ...Typography.body,
+    color: Colors.textSecondary,
   },
 });
