@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Button } from '@/components/ui/Button';
 import { ProgressDots } from '@/components/ui/ProgressDots';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants/theme';
 import { setConditionReport } from '@/features/storage/mmkv';
+import { logEvent } from '@/lib/analytics';
 import type { ConditionReport } from '@/games/types';
 
 type Rating = 1 | 2 | 3 | 4 | 5;
@@ -21,6 +22,12 @@ export default function ConditionCheckScreen() {
   const router = useRouter();
   const [answers, setAnswers] = useState<Partial<ConditionReport>>({});
   const [currentQuestion, setCurrentQuestion] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      logEvent({ name: 'screen_view', params: { screen: 'condition_check' } });
+    }, []),
+  );
 
   const question = QUESTIONS[currentQuestion];
   const currentAnswer = answers[question.key];
@@ -38,6 +45,14 @@ export default function ConditionCheckScreen() {
   function handleContinue() {
     const report = answers as ConditionReport;
     setConditionReport(report);
+    logEvent({
+      name: 'condition_check_complete',
+      params: {
+        sleep: report.sleepQuality,
+        energy: report.energyLevel,
+        stress: report.stressLevel,
+      },
+    });
     router.push('/mode-select');
   }
 

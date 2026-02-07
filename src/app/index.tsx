@@ -8,6 +8,7 @@ import { Colors, Typography, Spacing } from '@/constants/theme';
 import { getStreakCount, getTotalSessions } from '@/features/storage/mmkv';
 import { getRecentSessions } from '@/features/storage/sqlite';
 import { getTodayString } from '@/lib/utils';
+import { logEvent } from '@/lib/analytics';
 import type { SessionData } from '@/games/types';
 
 export default function HomeScreen() {
@@ -30,6 +31,12 @@ export default function HomeScreen() {
   }, []);
 
   useFocusEffect(loadData);
+
+  useFocusEffect(
+    useCallback(() => {
+      logEvent({ name: 'screen_view', params: { screen: 'home' } });
+    }, []),
+  );
 
   const hasTodaySession = todaySession !== null;
 

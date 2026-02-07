@@ -1,14 +1,22 @@
+import { useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Colors, Typography, Spacing, BorderRadius } from '@/constants/theme';
 import { getPreferredLanguage, setPreferredLanguage } from '@/features/storage/mmkv';
 import { resetDifficulty } from '@/features/adaptive/difficulty';
+import { logEvent } from '@/lib/analytics';
 
 export default function SettingsScreen() {
   const router = useRouter();
+  useFocusEffect(
+    useCallback(() => {
+      logEvent({ name: 'screen_view', params: { screen: 'settings' } });
+    }, []),
+  );
+
   const lang = getPreferredLanguage();
 
   function handleLanguageToggle() {

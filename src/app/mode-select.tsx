@@ -1,5 +1,6 @@
+import { useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Button } from '@/components/ui/Button';
 import { ModeCard } from '@/components/ui/Card';
@@ -7,6 +8,7 @@ import { Colors, Typography, Spacing, BorderRadius } from '@/constants/theme';
 import { MODE_CONFIG } from '@/constants/games';
 import { setCurrentMode, getConditionReport } from '@/features/storage/mmkv';
 import { useSession } from '@/features/session/context';
+import { logEvent } from '@/lib/analytics';
 import type { GameMode } from '@/games/types';
 
 const MODES: GameMode[] = ['rest', 'activation', 'development'];
@@ -26,6 +28,12 @@ export default function ModeSelectScreen() {
   const { startSession } = useSession();
   const condition = getConditionReport();
 
+  useFocusEffect(
+    useCallback(() => {
+      logEvent({ name: 'screen_view', params: { screen: 'mode_select' } });
+    }, []),
+  );
+
   const recommendation = condition
     ? getRecommendation(condition.sleepQuality, condition.energyLevel, condition.stressLevel)
     : null;
@@ -36,6 +44,7 @@ export default function ModeSelectScreen() {
     if (condition) {
       startSession(mode, condition);
     }
+    logEvent({ name: 'session_start', params: { mode } });
     router.push('/game-session');
   }
 

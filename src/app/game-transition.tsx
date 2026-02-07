@@ -8,6 +8,7 @@ import { SESSION_CONFIG } from '@/constants/games';
 import { useSession } from '@/features/session/context';
 import { getGamesForMode, getGameById } from '@/games/registry';
 import { formatDuration } from '@/lib/utils';
+import { logEvent } from '@/lib/analytics';
 
 export default function GameTransitionScreen() {
   const router = useRouter();
@@ -20,6 +21,10 @@ export default function GameTransitionScreen() {
     () => getGamesForMode(state.mode ?? 'activation'),
     [state.mode],
   );
+
+  useEffect(() => {
+    logEvent({ name: 'screen_view', params: { screen: 'game_transition' } });
+  }, []);
 
   const lastResult = state.gameResults[state.gameResults.length - 1];
   const completedGame = lastResult ? getGameById(lastResult.gameId) : null;

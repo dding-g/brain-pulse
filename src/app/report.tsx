@@ -5,6 +5,7 @@ import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Button } from '@/components/ui/Button';
 import { ScoreDisplay } from '@/components/ui/ScoreDisplay';
 import { Card } from '@/components/ui/Card';
+import { ShareCard } from '@/components/share/ShareCard';
 import { Colors, Typography, Spacing, BorderRadius, getScoreColor, getScoreLabel } from '@/constants/theme';
 import { captureAndShare } from '@/features/report/share-card';
 import { useSession } from '@/features/session/context';
@@ -16,6 +17,7 @@ import { insertSession, upsertDailySummary, getSessionCountForDate } from '@/fea
 import { getGameById } from '@/games/registry';
 import { getTodayString } from '@/lib/utils';
 import { submitSessionScores } from '@/lib/api';
+import { logEvent } from '@/lib/analytics';
 import type { SessionData } from '@/games/types';
 
 export default function ReportScreen() {
@@ -28,6 +30,19 @@ export default function ReportScreen() {
   const compositeScore = calculateCompositeScore(state.gameResults);
   const scoreLabel = getScoreLabel(compositeScore);
   const scoreColor = getScoreColor(compositeScore);
+
+  // Track screen_view and session_complete
+  useEffect(() => {
+    logEvent({ name: 'screen_view', params: { screen: 'report' } });
+    if (state.gameResults.length > 0 && state.mode) {
+      const startTime = state.sessionStartedAt ? new Date(state.sessionStartedAt).getTime() : 0;
+      const durationMs = startTime > 0 ? Date.now() - startTime : 0;
+      logEvent({
+        name: 'session_complete',
+        params: { mode: state.mode, score: compositeScore, duration_ms: durationMs },
+      });
+    }
+  }, []);
 
   useEffect(() => {
     if (saved || state.gameResults.length === 0) return;
@@ -96,13 +111,23 @@ export default function ReportScreen() {
 
   return (
     <ScreenContainer>
+      {/* Off-screen share card for image capture */}
+      <View style={styles.offScreen} pointerEvents="none">
+        <View ref={shareRef} collapsable={false}>
+          <ShareCard
+            compositeScore={compositeScore}
+            gameResults={state.gameResults}
+          />
+        </View>
+      </View>
+
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>오늘의 뇌 컨디션</Text>
           <Text style={styles.subtitle}>Today's Brain Condition</Text>
         </View>
 
-        <View ref={shareRef} style={styles.shareCard} collapsable={false}>
+        <View style={styles.shareCard}>
           <ScoreDisplay score={compositeScore} size="lg" />
 
           <View style={styles.toneContainer}>
@@ -163,7 +188,10 @@ export default function ReportScreen() {
         <View style={styles.actions}>
           <Button
             title="공유하기"
-            onPress={() => captureAndShare(shareRef)}
+            onPress={() => {
+              logEvent({ name: 'share_card', params: { score: compositeScore } });
+              captureAndShare(shareRef);
+            }}
             variant="secondary"
           />
           <Button
@@ -177,6 +205,11 @@ export default function ReportScreen() {
 }
 
 const styles = StyleSheet.create({
+  offScreen: {
+    position: 'absolute',
+    left: -9999,
+    top: 0,
+  },
   scrollContent: {
     paddingBottom: Spacing.xl,
   },

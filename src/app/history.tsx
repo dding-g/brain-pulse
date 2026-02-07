@@ -8,6 +8,7 @@ import { Colors, Typography, Spacing, BorderRadius, getScoreColor } from '@/cons
 import { getRecentSessions } from '@/features/storage/sqlite';
 import { getGameById } from '@/games/registry';
 import { formatDate, formatDuration } from '@/lib/utils';
+import { logEvent } from '@/lib/analytics';
 import type { SessionData } from '@/games/types';
 
 export default function HistoryScreen() {
@@ -17,7 +18,11 @@ export default function HistoryScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      getRecentSessions(50).then(setSessions);
+      logEvent({ name: 'screen_view', params: { screen: 'history' } });
+      getRecentSessions(50).then((data) => {
+        setSessions(data);
+        logEvent({ name: 'history_view', params: { session_count: data.length } });
+      });
     }, []),
   );
 

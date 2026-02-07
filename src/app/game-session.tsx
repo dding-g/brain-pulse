@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
@@ -7,11 +7,16 @@ import { Colors, Typography, Spacing } from '@/constants/theme';
 import { useSession } from '@/features/session/context';
 import { getGamesForMode } from '@/games/registry';
 import { getDifficultyForGame } from '@/features/adaptive/difficulty';
+import { logEvent } from '@/lib/analytics';
 import type { GameResult } from '@/games/types';
 
 export default function GameSessionScreen() {
   const router = useRouter();
   const { state, completeGame } = useSession();
+
+  useEffect(() => {
+    logEvent({ name: 'screen_view', params: { screen: 'game_session' } });
+  }, []);
 
   const games = useMemo(
     () => getGamesForMode(state.mode ?? 'activation'),
@@ -24,8 +29,22 @@ export default function GameSessionScreen() {
 
   const difficulty = currentGame ? getDifficultyForGame(currentGame.id) : 1;
 
+  // Track game_start when a new game renders
+  useEffect(() => {
+    if (currentGame) {
+      logEvent({
+        name: 'game_start',
+        params: { game_id: currentGame.id, difficulty },
+      });
+    }
+  }, [currentGame?.id, difficulty]);
+
   const handleComplete = useCallback(
     (result: GameResult) => {
+      logEvent({
+        name: 'game_complete',
+        params: { game_id: result.gameId, score: result.score, difficulty },
+      });
       completeGame(result);
 
       if (isLastGame) {
