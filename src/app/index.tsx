@@ -5,7 +5,11 @@ import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Button } from '@/components/ui/Button';
 import { ScoreDisplay } from '@/components/ui/ScoreDisplay';
 import { Colors, Typography, Spacing } from '@/constants/theme';
-import { getStreakCount, getTotalSessions } from '@/features/storage/mmkv';
+import {
+  getStreakCount,
+  getTotalSessions,
+  isOnboardingComplete,
+} from '@/features/storage/mmkv';
 import { getRecentSessions } from '@/features/storage/sqlite';
 import { getTodayString } from '@/lib/utils';
 import { logEvent } from '@/lib/analytics';
@@ -16,6 +20,12 @@ export default function HomeScreen() {
   const [streak, setStreak] = useState(0);
   const [totalSessions, setTotalSessions] = useState(0);
   const [todaySession, setTodaySession] = useState<SessionData | null>(null);
+
+  useEffect(() => {
+    if (!isOnboardingComplete()) {
+      router.replace('/onboarding');
+    }
+  }, [router]);
 
   const loadData = useCallback(() => {
     setStreak(getStreakCount());

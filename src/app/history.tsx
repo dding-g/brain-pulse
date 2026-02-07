@@ -1,30 +1,141 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, Modal, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Colors, Typography, Spacing, BorderRadius, getScoreColor } from '@/constants/theme';
-import { getRecentSessions } from '@/features/storage/sqlite';
+import { getSessionsForMonth } from '@/features/storage/sqlite';
 import { getGameById } from '@/games/registry';
 import { formatDate, formatDuration } from '@/lib/utils';
 import { logEvent } from '@/lib/analytics';
 import type { SessionData } from '@/games/types';
 
+const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
+
+function getDaysInMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
+}
+
+function getFirstDayOfWeek(year: number, month: number): number {
+  // 0 = Sunday, which matches our grid (일/월/화/수/목/금/토)
+  return new Date(year, month - 1, 1).getDay();
+}
+
 export default function HistoryScreen() {
   const router = useRouter();
+  const now = new Date();
+  const [currentYear, setCurrentYear] = useState(now.getFullYear());
+  const [currentMonth, setCurrentMonth] = useState(now.getMonth() + 1); // 1-indexed
   const [sessions, setSessions] = useState<SessionData[]>([]);
   const [selectedSession, setSelectedSession] = useState<SessionData | null>(null);
+  const [filterDay, setFilterDay] = useState<number | null>(null);
+  const listRef = useRef<FlatList>(null);
 
   useFocusEffect(
     useCallback(() => {
       logEvent({ name: 'screen_view', params: { screen: 'history' } });
-      getRecentSessions(50).then((data) => {
-        setSessions(data);
-        logEvent({ name: 'history_view', params: { session_count: data.length } });
-      });
-    }, []),
+      loadSessions(currentYear, currentMonth);
+    }, [currentYear, currentMonth]),
   );
+
+  async function loadSessions(year: number, month: number) {
+    const data = await getSessionsForMonth(year, month);
+    setSessions(data);
+    logEvent({ name: 'history_view', params: { session_count: data.length } });
+  }
+
+  // Build a map: day number -> best composite score for that day
+  const dayScoreMap = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const session of sessions) {
+      const day = new Date(session.startedAt).getDate();
+      const existing = map.get(day);
+      if (existing === undefined || session.compositeScore > existing) {
+        map.set(day, session.compositeScore);
+      }
+    }
+    return map;
+  }, [sessions]);
+
+  // Filtered sessions based on selected calendar day
+  const displayedSessions = useMemo(() => {
+    if (filterDay === null) return sessions;
+    return sessions.filter((s) => new Date(s.startedAt).getDate() === filterDay);
+  }, [sessions, filterDay]);
+
+  function goToPrevMonth() {
+    setFilterDay(null);
+    if (currentMonth === 1) {
+      setCurrentYear((y) => y - 1);
+      setCurrentMonth(12);
+    } else {
+      setCurrentMonth((m) => m - 1);
+    }
+  }
+
+  function goToNextMonth() {
+    setFilterDay(null);
+    if (currentMonth === 12) {
+      setCurrentYear((y) => y + 1);
+      setCurrentMonth(1);
+    } else {
+      setCurrentMonth((m) => m + 1);
+    }
+  }
+
+  function handleDayPress(day: number) {
+    if (!dayScoreMap.has(day)) return;
+    if (filterDay === day) {
+      // Tap again to clear filter
+      setFilterDay(null);
+    } else {
+      setFilterDay(day);
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    }
+  }
+
+  // Calendar grid
+  const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+  const firstDayOfWeek = getFirstDayOfWeek(currentYear, currentMonth);
+
+  function renderCalendar() {
+    const cells: React.ReactNode[] = [];
+
+    // Empty cells for days before the 1st
+    for (let i = 0; i < firstDayOfWeek; i++) {
+      cells.push(<View key={`empty-${i}`} style={styles.calendarCell} />);
+    }
+
+    // Day cells
+    for (let day = 1; day <= daysInMonth; day++) {
+      const score = dayScoreMap.get(day);
+      const isSelected = filterDay === day;
+      cells.push(
+        <Pressable
+          key={day}
+          style={[styles.calendarCell, isSelected && styles.calendarCellSelected]}
+          onPress={() => handleDayPress(day)}
+        >
+          <Text
+            style={[
+              styles.calendarDayText,
+              isSelected && styles.calendarDayTextSelected,
+            ]}
+          >
+            {day}
+          </Text>
+          {score !== undefined && (
+            <View
+              style={[styles.calendarDot, { backgroundColor: getScoreColor(score) }]}
+            />
+          )}
+        </Pressable>,
+      );
+    }
+
+    return cells;
+  }
 
   return (
     <ScreenContainer>
@@ -34,15 +145,56 @@ export default function HistoryScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      {sessions.length === 0 ? (
+      {/* Calendar */}
+      <View style={styles.calendar}>
+        <View style={styles.calendarHeader}>
+          <Pressable onPress={goToPrevMonth} style={styles.calendarNav}>
+            <Text style={styles.calendarNavText}>{'<'}</Text>
+          </Pressable>
+          <Text style={styles.calendarMonth}>
+            {currentYear}년 {currentMonth}월
+          </Text>
+          <Pressable onPress={goToNextMonth} style={styles.calendarNav}>
+            <Text style={styles.calendarNavText}>{'>'}</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.calendarDayLabels}>
+          {DAY_LABELS.map((label) => (
+            <Text key={label} style={styles.calendarDayLabel}>
+              {label}
+            </Text>
+          ))}
+        </View>
+
+        <View style={styles.calendarGrid}>{renderCalendar()}</View>
+
+        {filterDay !== null && (
+          <Pressable onPress={() => setFilterDay(null)} style={styles.filterBadge}>
+            <Text style={styles.filterBadgeText}>
+              {currentMonth}월 {filterDay}일 필터 해제
+            </Text>
+          </Pressable>
+        )}
+      </View>
+
+      {/* Session list */}
+      {displayedSessions.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyEmoji}>📊</Text>
-          <Text style={styles.emptyText}>아직 기록이 없습니다</Text>
-          <Text style={styles.emptySubtext}>Start a brain check to see your history</Text>
+          <Text style={styles.emptyText}>
+            {filterDay !== null ? '선택한 날짜에 기록이 없습니다' : '아직 기록이 없습니다'}
+          </Text>
+          <Text style={styles.emptySubtext}>
+            {filterDay !== null
+              ? 'No sessions on the selected day'
+              : 'Start a brain check to see your history'}
+          </Text>
         </View>
       ) : (
         <FlatList
-          data={sessions}
+          ref={listRef}
+          data={displayedSessions}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
@@ -144,12 +296,14 @@ export default function HistoryScreen() {
   );
 }
 
+const CELL_SIZE = 40;
+
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   title: {
     ...Typography.heading2,
@@ -158,6 +312,83 @@ const styles = StyleSheet.create({
   placeholder: {
     width: 40,
   },
+  // Calendar styles
+  calendar: {
+    marginBottom: Spacing.md,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
+  },
+  calendarNav: {
+    padding: Spacing.sm,
+  },
+  calendarNavText: {
+    ...Typography.bodyBold,
+    color: Colors.primary,
+    fontSize: 18,
+  },
+  calendarMonth: {
+    ...Typography.bodyBold,
+    color: Colors.textPrimary,
+  },
+  calendarDayLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: Spacing.xs,
+  },
+  calendarDayLabel: {
+    ...Typography.caption,
+    color: Colors.textTertiary,
+    width: CELL_SIZE,
+    textAlign: 'center',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+  },
+  calendarCell: {
+    width: `${100 / 7}%`,
+    height: CELL_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  calendarCellSelected: {
+    backgroundColor: Colors.surfaceLight,
+    borderRadius: BorderRadius.sm,
+  },
+  calendarDayText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    fontSize: 13,
+  },
+  calendarDayTextSelected: {
+    color: Colors.textPrimary,
+    fontWeight: '700',
+  },
+  calendarDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 1,
+  },
+  filterBadge: {
+    alignSelf: 'center',
+    marginTop: Spacing.sm,
+    backgroundColor: Colors.surfaceLight,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
+  filterBadgeText: {
+    ...Typography.caption,
+    color: Colors.primary,
+  },
+  // Session list styles
   empty: {
     flex: 1,
     justifyContent: 'center',

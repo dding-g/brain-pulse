@@ -118,3 +118,10 @@ export function getPreferredLanguage(): 'ko' | 'en' {
 export function setPreferredLanguage(lang: 'ko' | 'en'): void {
   storage.set(KEYS.PREFERRED_LANGUAGE, lang);
 }
+
+// ── Data management ─────────────────────────────────────────────────
+
+/** Clear all MMKV stored data */
+export function clearAllData(): void {
+  storage.clearAll();
+}

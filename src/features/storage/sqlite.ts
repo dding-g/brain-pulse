@@ -192,6 +192,56 @@ export async function getDailySummaries(days: number = 30): Promise<DailySummary
   }));
 }
 
+export async function getSessionsForMonth(year: number, month: number): Promise<SessionData[]> {
+  const d = getDb();
+  // month is 1-indexed (1 = January)
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  // Calculate end date: first day of next month
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+
+  const rows = await d.getAllAsync<{
+    id: string;
+    started_at: string;
+    ended_at: string;
+    mode: string;
+    composite_score: number;
+    sleep_quality: number;
+    energy_level: number;
+    stress_level: number;
+  }>('SELECT * FROM sessions WHERE started_at >= ? AND started_at < ? ORDER BY started_at DESC', startDate, endDate);
+
+  const sessions: SessionData[] = [];
+  for (const row of rows) {
+    const gameResults = await getGameResultsForSession(row.id);
+    sessions.push({
+      id: row.id,
+      startedAt: row.started_at,
+      endedAt: row.ended_at,
+      mode: row.mode as GameMode,
+      compositeScore: row.composite_score,
+      conditionBefore: {
+        sleepQuality: row.sleep_quality as ConditionReport['sleepQuality'],
+        energyLevel: row.energy_level as ConditionReport['energyLevel'],
+        stressLevel: row.stress_level as ConditionReport['stressLevel'],
+      },
+      gameResults,
+    });
+  }
+  return sessions;
+}
+
+/** Delete all sessions and related data */
+export async function clearAllSessions(): Promise<void> {
+  const d = getDb();
+  await d.execAsync(`
+    DELETE FROM game_results;
+    DELETE FROM sessions;
+    DELETE FROM daily_summaries;
+  `);
+}
+
 export async function getSessionCountForDate(date: string): Promise<number> {
   const d = getDb();
   const result = await d.getFirstAsync<{ count: number }>(
