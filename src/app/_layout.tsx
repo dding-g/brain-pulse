@@ -1,14 +1,16 @@
 import { useEffect } from 'react';
+import { Platform, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StyleSheet } from 'react-native';
 import { Colors } from '@/constants/theme';
 import { initDatabase } from '@/features/storage/sqlite';
 import { SessionProvider } from '@/features/session/context';
 
-SplashScreen.preventAutoHideAsync();
+if (Platform.OS !== 'web') {
+  SplashScreen.preventAutoHideAsync();
+}
 
 export default function RootLayout() {
   useEffect(() => {
@@ -18,7 +20,9 @@ export default function RootLayout() {
       } catch (e) {
         console.error('Failed to init database:', e);
       } finally {
-        await SplashScreen.hideAsync();
+        if (Platform.OS !== 'web') {
+          await SplashScreen.hideAsync();
+        }
       }
     }
     init();

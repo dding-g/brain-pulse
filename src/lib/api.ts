@@ -1,7 +1,11 @@
 import { storage } from '@/features/storage/mmkv';
 import type { GameMode } from '@/games/types';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8787';
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? '';
+
+function isApiConfigured(): boolean {
+  return Boolean(API_BASE_URL) && !API_BASE_URL.includes('YOURNAME');
+}
 
 // ── Types matching backend Zod schemas ─────────────────────────────
 
@@ -68,8 +72,11 @@ interface ApiOptions {
   timeoutMs?: number;
 }
 
-/** Make an API request to the backend */
 async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<ApiResponse<T>> {
+  if (!isApiConfigured()) {
+    return { success: false, error: 'API not configured' };
+  }
+
   const { method = 'GET', body, headers = {}, timeoutMs = 10_000 } = options;
 
   const controller = new AbortController();

@@ -24,12 +24,12 @@ export const MODE_CONFIG: Record<
   },
   development: {
     title: 'Development',
-    titleKo: '개발',
+    titleKo: '발달',
     description: 'Intensive brain workout for growth',
     descriptionKo: '집중 뇌 트레이닝',
-    icon: '🚀',
-    gameCount: 5,
-    enabled: false,
+    icon: '🧠',
+    gameCount: 1,
+    enabled: true,
   },
 };
 

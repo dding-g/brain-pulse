@@ -1,47 +1,116 @@
-import type { GameResult, SessionData, DailySummary, GameMode, ConditionReport } from '@/games/types'
+import type { DailySummary, SessionData } from '@/games/types';
 
-// Web fallback: in-memory storage since expo-sqlite is native-only
-let sessions: SessionData[] = []
-let dailySummaries: DailySummary[] = []
+const SESSIONS_KEY = 'bp_sessions';
+const SUMMARIES_KEY = 'bp_daily_summaries';
 
-export async function initDatabase(): Promise<void> {
-  // No-op on web
+let initialized = false;
+const sessions = new Map<string, SessionData>();
+const dailySummaries = new Map<string, DailySummary>();
+
+function canUseLocalStorage(): boolean {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 }
 
-export async function insertSession(session: SessionData): Promise<void> {
-  sessions.unshift(session)
-}
+function readJsonArray<T>(key: string): T[] {
+  if (!canUseLocalStorage()) return [];
+  const raw = window.localStorage.getItem(key);
+  if (!raw) return [];
 
-export async function getRecentSessions(limit: number = 10): Promise<SessionData[]> {
-  return sessions.slice(0, limit)
-}
-
-export async function upsertDailySummary(summary: DailySummary): Promise<void> {
-  const idx = dailySummaries.findIndex((s) => s.date === summary.date)
-  if (idx >= 0) {
-    dailySummaries[idx] = summary
-  } else {
-    dailySummaries.unshift(summary)
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
+  } catch {
+    return [];
   }
 }
 
-export async function getDailySummaries(days: number = 30): Promise<DailySummary[]> {
-  return dailySummaries.slice(0, days)
+function persistState(): void {
+  if (!canUseLocalStorage()) return;
+  window.localStorage.setItem(SESSIONS_KEY, JSON.stringify(Array.from(sessions.values())));
+  window.localStorage.setItem(SUMMARIES_KEY, JSON.stringify(Array.from(dailySummaries.values())));
 }
 
-export async function getSessionsForMonth(
-  year: number,
-  month: number,
-): Promise<SessionData[]> {
-  const prefix = `${year}-${String(month).padStart(2, '0')}`
-  return sessions.filter((s) => s.startedAt.startsWith(prefix))
+function ensureInitialized(): void {
+  if (!initialized) {
+    throw new Error('Database not initialized. Call initDatabase() first.');
+  }
+}
+
+export async function initDatabase(): Promise<void> {
+  sessions.clear();
+  dailySummaries.clear();
+
+  const storedSessions = readJsonArray<SessionData>(SESSIONS_KEY);
+  for (const session of storedSessions) {
+    sessions.set(session.id, session);
+  }
+
+  const storedSummaries = readJsonArray<DailySummary>(SUMMARIES_KEY);
+  for (const summary of storedSummaries) {
+    dailySummaries.set(summary.date, summary);
+  }
+
+  initialized = true;
+}
+
+export async function insertSession(session: SessionData): Promise<void> {
+  ensureInitialized();
+  if (sessions.has(session.id)) {
+    throw new Error(`Session with id '${session.id}' already exists.`);
+  }
+
+  sessions.set(session.id, session);
+  persistState();
+}
+
+export async function getRecentSessions(limit: number = 10): Promise<SessionData[]> {
+  ensureInitialized();
+  return Array.from(sessions.values())
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    .slice(0, limit);
+}
+
+export async function upsertDailySummary(summary: DailySummary): Promise<void> {
+  ensureInitialized();
+  dailySummaries.set(summary.date, summary);
+  persistState();
+}
+
+export async function getDailySummaries(days: number = 30): Promise<DailySummary[]> {
+  ensureInitialized();
+  return Array.from(dailySummaries.values())
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, days);
+}
+
+export async function getSessionsForMonth(year: number, month: number): Promise<SessionData[]> {
+  ensureInitialized();
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+
+  return Array.from(sessions.values())
+    .filter((session) => session.startedAt >= startDate && session.startedAt < endDate)
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
 }
 
 export async function clearAllSessions(): Promise<void> {
-  sessions = []
-  dailySummaries = []
+  ensureInitialized();
+  sessions.clear();
+  dailySummaries.clear();
+  persistState();
 }
 
 export async function getSessionCountForDate(date: string): Promise<number> {
-  return sessions.filter((s) => s.startedAt.startsWith(date)).length
+  ensureInitialized();
+  let count = 0;
+
+  for (const session of sessions.values()) {
+    if (session.startedAt.slice(0, 10) === date) {
+      count += 1;
+    }
+  }
+
+  return count;
 }

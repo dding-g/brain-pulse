@@ -3,6 +3,7 @@ import { SpeedMatchGame } from './speed-match';
 import { ColorStroopGame } from './color-stroop';
 import { SequenceMemoryGame } from './sequence-memory';
 import { QuickMathGame } from './quick-math';
+import { NBackGame } from './n-back';
 
 /** Central registry of all available mini-games */
 const gameRegistry: MiniGameDefinition[] = [];
@@ -86,4 +87,16 @@ registerGame({
   estimatedDurationSec: 45,
   modes: ['activation'],
   component: QuickMathGame,
+});
+
+registerGame({
+  id: 'n-back',
+  name: 'N-Back',
+  nameKo: 'N-백',
+  description: 'Remember which position was active N steps ago',
+  descriptionKo: 'N단계 전 위치를 기억하세요',
+  domain: 'memory',
+  estimatedDurationSec: 90,
+  modes: ['development'],
+  component: NBackGame,
 });

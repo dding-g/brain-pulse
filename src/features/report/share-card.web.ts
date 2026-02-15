@@ -1,7 +1,20 @@
-import type { RefObject } from 'react'
-import type { View } from 'react-native'
+import type { RefObject } from 'react';
+import type { View } from 'react-native';
 
-/** Web fallback: no-op since react-native-view-shot and expo-sharing are native-only */
-export async function captureAndShare(_viewRef: RefObject<View>): Promise<void> {
-  // Not supported on web
+export async function captureAndShare(viewRef: RefObject<View>): Promise<void> {
+  if (!viewRef.current) return;
+
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      await navigator.share({
+        title: 'BrainPulse',
+        text: 'Check out my BrainPulse score.',
+      });
+      return;
+    } catch {
+      return;
+    }
+  }
+
+  console.log('Web Share API is not available in this browser.');
 }
