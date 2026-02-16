@@ -1,0 +1,10 @@
+app_identifier("com.brainpulse.app")
+apple_id("area409@naver.com")
+team_id("HGRW42Z676")
+
+# App Store Connect API Key (recommended over password auth)
+# Key is configured via Fastfile using app_store_connect_api_key action
+
+# Android
+json_key_file("./fastlane/google-play-key.json")
+package_name("com.brainpulse.app")

@@ -1,0 +1,210 @@
+default_platform(:ios)
+
+# ─── Shared ─────────────────────────────────────────────────────────────────
+
+def api_key
+  app_store_connect_api_key(
+    key_id: ENV["ASC_KEY_ID"],
+    issuer_id: ENV["ASC_ISSUER_ID"],
+    key_filepath: ENV["ASC_KEY_FILEPATH"],
+    in_house: false
+  )
+end
+
+def ensure_env!(*keys)
+  missing = keys.select { |k| ENV[k].nil? || ENV[k].empty? }
+  UI.user_error!("Missing env vars: #{missing.join(', ')}") unless missing.empty?
+end
+
+# ─── iOS ────────────────────────────────────────────────────────────────────
+
+platform :ios do
+  desc "Create app in App Store Connect (run once)"
+  lane :create_app do
+    ensure_env!("ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_KEY_FILEPATH")
+    key = api_key
+
+    # Register Bundle ID in Developer Portal via ASC API
+    begin
+      Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(**key)
+      bundle_ids = Spaceship::ConnectAPI::BundleId.all.select { |b| b.identifier == "com.brainpulse.app" }
+      if bundle_ids.empty?
+        UI.message("Registering Bundle ID: com.brainpulse.app")
+        bundle_id = Spaceship::ConnectAPI::BundleId.create(
+          name: "BrainPulse",
+          identifier: "com.brainpulse.app",
+          platform: "IOS"
+        )
+        UI.success("✅ Bundle ID registered: #{bundle_id.identifier}")
+      else
+        bundle_id = bundle_ids.first
+        UI.success("Bundle ID already exists: #{bundle_id.identifier}")
+      end
+
+      # Create App in App Store Connect
+      apps = Spaceship::ConnectAPI::App.all.select { |a| a.bundle_id == "com.brainpulse.app" }
+      if apps.empty?
+        UI.message("Creating app in App Store Connect...")
+        app = Spaceship::ConnectAPI::App.create(
+          name: "BrainPulse",
+          bundle_id: bundle_id.id,
+          sku: "com.brainpulse.app",
+          primary_locale: "ko",
+          platforms: ["IOS"]
+        )
+        UI.success("✅ App created in App Store Connect!")
+      else
+        UI.success("App already exists in App Store Connect")
+      end
+    rescue => e
+      UI.error("Failed: #{e.message}")
+      UI.important("Please create the app manually at https://appstoreconnect.apple.com")
+      raise e
+    end
+  end
+
+  desc "Sync certificates & provisioning profiles via Match"
+  lane :certificates do
+    ensure_env!("ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_KEY_FILEPATH", "MATCH_PASSWORD")
+    match(
+      type: "appstore",
+      api_key: api_key,
+      readonly: is_ci,
+      app_identifier: "com.brainpulse.app"
+    )
+  end
+
+  desc "Build iOS app for App Store"
+  lane :build do
+    ensure_env!("ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_KEY_FILEPATH", "MATCH_PASSWORD")
+
+    certificates
+
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "ios/BrainPulse.xcodeproj",
+      team_id: "HGRW42Z676",
+      bundle_identifier: "com.brainpulse.app",
+      profile_name: "match AppStore com.brainpulse.app",
+      code_sign_identity: "Apple Distribution"
+    )
+
+    build_app(
+      workspace: "ios/BrainPulse.xcworkspace",
+      scheme: "BrainPulse",
+      export_method: "app-store",
+      output_directory: "./build/ios",
+      output_name: "BrainPulse.ipa",
+      clean: true,
+      xcargs: "DEVELOPMENT_TEAM=HGRW42Z676",
+      export_options: {
+        provisioningProfiles: {
+          "com.brainpulse.app" => "match AppStore com.brainpulse.app"
+        }
+      }
+    )
+  end
+
+  desc "Upload to TestFlight"
+  lane :beta do
+    ensure_env!("ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_KEY_FILEPATH", "MATCH_PASSWORD")
+
+    build
+
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true,
+      ipa: "./build/ios/BrainPulse.ipa"
+    )
+
+    UI.success("✅ Uploaded to TestFlight!")
+  end
+
+  desc "Upload existing IPA to TestFlight (skip rebuild)"
+  lane :upload do
+    ensure_env!("ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_KEY_FILEPATH")
+
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true,
+      ipa: "./build/ios/BrainPulse.ipa"
+    )
+
+    UI.success("✅ Uploaded to TestFlight!")
+  end
+
+  desc "Upload to App Store (production release)"
+  lane :release do
+    ensure_env!("ASC_KEY_ID", "ASC_ISSUER_ID", "ASC_KEY_FILEPATH", "MATCH_PASSWORD")
+
+    build
+
+    upload_to_app_store(
+      api_key: api_key,
+      ipa: "./build/ios/BrainPulse.ipa",
+      submit_for_review: false,
+      automatic_release: false,
+      force: true,
+      skip_screenshots: true,
+      skip_metadata: false,
+      precheck_include_in_app_purchases: false
+    )
+
+    UI.success("✅ Uploaded to App Store Connect!")
+  end
+end
+
+# ─── Android ────────────────────────────────────────────────────────────────
+
+platform :android do
+  desc "Build Android AAB (release)"
+  lane :build do
+    gradle(
+      project_dir: "./android",
+      task: "bundle",
+      build_type: "Release",
+      properties: {
+        "android.injected.signing.store.file" => ENV["ANDROID_KEYSTORE_FILE"],
+        "android.injected.signing.store.password" => ENV["ANDROID_KEYSTORE_PASSWORD"],
+        "android.injected.signing.key.alias" => ENV["ANDROID_KEY_ALIAS"],
+        "android.injected.signing.key.password" => ENV["ANDROID_KEY_PASSWORD"]
+      }
+    )
+  end
+
+  desc "Upload to Google Play internal testing track"
+  lane :beta do
+    ensure_env!("ANDROID_KEYSTORE_FILE", "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD")
+
+    build
+
+    upload_to_play_store(
+      track: "internal",
+      aab: "./android/app/build/outputs/bundle/release/app-release.aab",
+      json_key: "./fastlane/google-play-key.json",
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+
+    UI.success("✅ Uploaded to Google Play (internal track)!")
+  end
+
+  desc "Upload to Google Play production"
+  lane :release do
+    ensure_env!("ANDROID_KEYSTORE_FILE", "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD")
+
+    build
+
+    upload_to_play_store(
+      track: "production",
+      aab: "./android/app/build/outputs/bundle/release/app-release.aab",
+      json_key: "./fastlane/google-play-key.json",
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+
+    UI.success("✅ Uploaded to Google Play (production)!")
+  end
+end

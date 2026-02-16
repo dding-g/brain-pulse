@@ -1,0 +1,7 @@
+git_url("https://github.com/ddingg-sutra/credential.git")
+storage_mode("git")
+
+type("appstore") # "development", "adhoc", "appstore", "enterprise"
+
+app_identifier("com.brainpulse.app")
+team_id("HGRW42Z676")

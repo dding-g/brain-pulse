@@ -15,7 +15,8 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.brainpulse.app"
+      "bundleIdentifier": "com.brainpulse.app",
+      "appleTeamId": "HGRW42Z676"
     },
     "android": {
       "adaptiveIcon": {
