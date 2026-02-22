@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/layout/ScreenContainer';
 import { Button } from '@/components/ui/Button';
@@ -188,9 +188,13 @@ export default function ReportScreen() {
         <View style={styles.actions}>
           <Button
             title="공유하기"
-            onPress={() => {
+            onPress={async () => {
               logEvent({ name: 'share_card', params: { score: compositeScore } });
-              captureAndShare(shareRef);
+              try {
+                await captureAndShare(shareRef);
+              } catch {
+                Alert.alert('공유 실패', '공유 카드 생성에 실패했습니다. 다시 시도해주세요.');
+              }
             }}
             variant="secondary"
           />

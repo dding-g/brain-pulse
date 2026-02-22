@@ -13,9 +13,27 @@ import type { ConditionReport } from '@/games/types';
 type Rating = 1 | 2 | 3 | 4 | 5;
 
 const QUESTIONS = [
-  { key: 'sleepQuality' as const, label: '수면 품질', labelEn: 'Sleep Quality', emojis: ['😵', '😴', '😐', '🙂', '😊'] },
-  { key: 'energyLevel' as const, label: '에너지 레벨', labelEn: 'Energy Level', emojis: ['🪫', '😮‍💨', '😐', '💪', '⚡'] },
-  { key: 'stressLevel' as const, label: '스트레스', labelEn: 'Stress Level', emojis: ['😌', '🙂', '😐', '😰', '🤯'] },
+  {
+    key: 'sleepQuality' as const,
+    label: '수면 품질',
+    labelEn: 'Sleep Quality',
+    emojis: ['😵', '😴', '😐', '🙂', '😊'],
+    descriptions: ['매우 나쁨', '나쁨', '보통', '좋음', '매우 좋음'],
+  },
+  {
+    key: 'energyLevel' as const,
+    label: '에너지 레벨',
+    labelEn: 'Energy Level',
+    emojis: ['🪫', '😮\u200d💨', '😐', '💪', '⚡'],
+    descriptions: ['매우 낮음', '낮음', '보통', '높음', '매우 높음'],
+  },
+  {
+    key: 'stressLevel' as const,
+    label: '스트레스',
+    labelEn: 'Stress Level',
+    emojis: ['😌', '🙂', '😐', '😰', '🤯'],
+    descriptions: ['매우 낮음', '낮음', '보통', '높음', '매우 높음'],
+  },
 ];
 
 export default function ConditionCheckScreen() {
@@ -67,7 +85,7 @@ export default function ConditionCheckScreen() {
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <Button title="<" variant="ghost" size="sm" onPress={handleBack} />
+        <Button title="←" variant="ghost" size="sm" onPress={handleBack} />
         <Text style={styles.title}>컨디션 체크</Text>
         <View style={styles.placeholder} />
       </View>
@@ -90,7 +108,7 @@ export default function ConditionCheckScreen() {
               >
                 <Text style={styles.emoji}>{emoji}</Text>
                 <Text style={[styles.emojiLabel, selected && styles.emojiLabelSelected]}>
-                  {value}
+                  {question.descriptions[i]}
                 </Text>
               </Pressable>
             );

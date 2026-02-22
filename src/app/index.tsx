@@ -20,6 +20,8 @@ export default function HomeScreen() {
   const [streak, setStreak] = useState(0);
   const [totalSessions, setTotalSessions] = useState(0);
   const [todaySession, setTodaySession] = useState<SessionData | null>(null);
+  const [lastSession, setLastSession] = useState<SessionData | null>(null);
+  const [previousScore, setPreviousScore] = useState<number | null>(null);
 
   if (!isOnboardingComplete()) {
     return <Redirect href="/onboarding" />;
@@ -30,11 +32,26 @@ export default function HomeScreen() {
     setTotalSessions(getTotalSessions());
 
     const today = getTodayString();
-    getRecentSessions(5).then((sessions) => {
+    getRecentSessions(10).then((sessions) => {
       const todayResult = sessions.find(
         (s) => s.startedAt.slice(0, 10) === today,
       );
       setTodaySession(todayResult ?? null);
+
+      if (sessions.length > 0) {
+        setLastSession(sessions[0]);
+      }
+
+      if (todayResult) {
+        const prev = sessions.find(
+          (s) => s.startedAt.slice(0, 10) !== today,
+        );
+        setPreviousScore(prev?.compositeScore ?? null);
+      } else if (sessions.length >= 2) {
+        setPreviousScore(sessions[1].compositeScore);
+      } else {
+        setPreviousScore(null);
+      }
     });
   }, []);
 
@@ -47,6 +64,14 @@ export default function HomeScreen() {
   );
 
   const hasTodaySession = todaySession !== null;
+  const displayScore = hasTodaySession
+    ? todaySession.compositeScore
+    : lastSession?.compositeScore ?? 0;
+
+  const scoreDiff =
+    previousScore !== null && displayScore > 0
+      ? Math.round(displayScore - previousScore)
+      : null;
 
   return (
     <ScreenContainer>
@@ -60,11 +85,29 @@ export default function HomeScreen() {
           <View style={styles.lastScore}>
             <Text style={styles.lastScoreLabel}>TODAY'S SCORE</Text>
             <ScoreDisplay score={todaySession.compositeScore} size="lg" />
+            {scoreDiff !== null && scoreDiff !== 0 && (
+              <View style={styles.trendContainer}>
+                <Text
+                  style={[
+                    styles.trendText,
+                    {
+                      color:
+                        scoreDiff > 0
+                          ? Colors.success
+                          : Colors.danger,
+                    },
+                  ]}
+                >
+                  {scoreDiff > 0 ? '▲' : '▼'} {Math.abs(scoreDiff)}점{' '}
+                  {scoreDiff > 0 ? '상승' : '하락'}
+                </Text>
+              </View>
+            )}
           </View>
-        ) : totalSessions > 0 ? (
+        ) : lastSession ? (
           <View style={styles.lastScore}>
             <Text style={styles.lastScoreLabel}>LAST SCORE</Text>
-            <ScoreDisplay score={0} size="lg" />
+            <ScoreDisplay score={lastSession.compositeScore} size="lg" />
             <Text style={styles.noTodayText}>오늘 아직 체크하지 않았어요</Text>
           </View>
         ) : (
@@ -82,8 +125,12 @@ export default function HomeScreen() {
 
       <View style={styles.stats}>
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>{streak}</Text>
-          <Text style={styles.statLabel}>연속</Text>
+          <Text style={styles.statValue}>
+            {streak > 0 ? `🔥 ${streak}` : '0'}
+          </Text>
+          <Text style={styles.statLabel}>
+            {streak > 0 ? `${streak}일 연속` : '연속 기록'}
+          </Text>
         </View>
         <View style={styles.divider} />
         <View style={styles.statItem}>
@@ -91,6 +138,12 @@ export default function HomeScreen() {
           <Text style={styles.statLabel}>총 세션</Text>
         </View>
       </View>
+
+      {streak === 0 && totalSessions > 0 && (
+        <Text style={styles.encourageText}>
+          다시 시작해볼까요? 첫 걸음이 가장 중요해요!
+        </Text>
+      )}
 
       <View style={styles.actions}>
         <Button
@@ -100,13 +153,13 @@ export default function HomeScreen() {
         />
         <View style={styles.secondaryActions}>
           <Button
-            title="기록"
+            title="📊 기록"
             variant="secondary"
             onPress={() => router.push('/history')}
             size="md"
           />
           <Button
-            title="설정"
+            title="⚙️ 설정"
             variant="ghost"
             onPress={() => router.push('/settings')}
             size="md"
@@ -152,6 +205,13 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     marginTop: Spacing.sm,
   },
+  trendContainer: {
+    marginTop: Spacing.xs,
+  },
+  trendText: {
+    ...Typography.bodyBold,
+    fontSize: 14,
+  },
   welcomeBox: {
     alignItems: 'center',
     gap: Spacing.md,
@@ -191,6 +251,12 @@ const styles = StyleSheet.create({
     width: 1,
     height: 32,
     backgroundColor: Colors.border,
+  },
+  encourageText: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.md,
   },
   actions: {
     gap: Spacing.md,

@@ -7,8 +7,10 @@ import { Card } from '@/components/ui/Card';
 import { Colors, Typography, Spacing, BorderRadius, getScoreColor } from '@/constants/theme';
 import { getSessionsForMonth } from '@/features/storage/sqlite';
 import { getGameById } from '@/games/registry';
-import { formatDate, formatDuration } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 import { logEvent } from '@/lib/analytics';
+import { MODE_CONFIG } from '@/constants/games';
+import type { GameMode } from '@/games/types';
 import type { SessionData } from '@/games/types';
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -111,16 +113,18 @@ export default function HistoryScreen() {
     for (let day = 1; day <= daysInMonth; day++) {
       const score = dayScoreMap.get(day);
       const isSelected = filterDay === day;
+      const isToday = day === now.getDate() && currentYear === now.getFullYear() && currentMonth === now.getMonth() + 1;
       cells.push(
         <Pressable
           key={day}
-          style={[styles.calendarCell, isSelected && styles.calendarCellSelected]}
+          style={[styles.calendarCell, isSelected && styles.calendarCellSelected, isToday && !isSelected && styles.calendarCellToday]}
           onPress={() => handleDayPress(day)}
         >
           <Text
             style={[
               styles.calendarDayText,
               isSelected && styles.calendarDayTextSelected,
+              isToday && styles.calendarDayTextToday,
             ]}
           >
             {day}
@@ -140,7 +144,7 @@ export default function HistoryScreen() {
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <Button title="<" variant="ghost" size="sm" onPress={() => router.back()} />
+        <Button title="←" variant="ghost" size="sm" onPress={() => router.back()} />
         <Text style={styles.title}>기록</Text>
         <View style={styles.placeholder} />
       </View>
@@ -187,8 +191,8 @@ export default function HistoryScreen() {
           </Text>
           <Text style={styles.emptySubtext}>
             {filterDay !== null
-              ? 'No sessions on the selected day'
-              : 'Start a brain check to see your history'}
+              ? '다른 날짜를 선택해보세요'
+              : '뇌 컨디션 체크를 시작해보세요!'}
           </Text>
         </View>
       ) : (
@@ -214,7 +218,7 @@ export default function HistoryScreen() {
                     })}
                   </Text>
                   <Text style={styles.sessionMode}>
-                    {item.mode} - {item.gameResults.length} games
+                    {MODE_CONFIG[item.mode as GameMode]?.icon} {MODE_CONFIG[item.mode as GameMode]?.titleKo ?? item.mode} · {item.gameResults.length}개 게임
                   </Text>
                 </View>
                 <View style={styles.sessionScore}>
@@ -255,6 +259,26 @@ export default function HistoryScreen() {
                 >
                   {Math.round(selectedSession.compositeScore)}
                 </Text>
+
+                {selectedSession.conditionBefore && (
+                  <View style={styles.modalCondition}>
+                    <Text style={styles.modalConditionTitle}>컨디션</Text>
+                    <View style={styles.modalConditionRow}>
+                      <View style={styles.modalConditionItem}>
+                        <Text style={styles.modalConditionEmoji}>{['\ud83d\ude2b','\ud83d\ude34','\ud83d\ude10','\ud83d\ude0a','\ud83d\ude0e'][selectedSession.conditionBefore.sleepQuality - 1]}</Text>
+                        <Text style={styles.modalConditionLabel}>수면</Text>
+                      </View>
+                      <View style={styles.modalConditionItem}>
+                        <Text style={styles.modalConditionEmoji}>{['\ud83e\udeab','\ud83d\ude2e\u200d\ud83d\udca8','\ud83d\ude10','\ud83d\udcaa','\ud83d\udd25'][selectedSession.conditionBefore.energyLevel - 1]}</Text>
+                        <Text style={styles.modalConditionLabel}>에너지</Text>
+                      </View>
+                      <View style={styles.modalConditionItem}>
+                        <Text style={styles.modalConditionEmoji}>{['\ud83d\ude0c','\ud83d\ude42','\ud83d\ude10','\ud83d\ude30','\ud83e\udd2f'][selectedSession.conditionBefore.stressLevel - 1]}</Text>
+                        <Text style={styles.modalConditionLabel}>스트레스</Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
 
                 <View style={styles.modalBreakdown}>
                   {selectedSession.gameResults.map((result) => {
@@ -361,6 +385,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceLight,
     borderRadius: BorderRadius.sm,
   },
+  calendarCellToday: {
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    borderRadius: BorderRadius.sm,
+  },
   calendarDayText: {
     ...Typography.caption,
     color: Colors.textSecondary,
@@ -369,6 +398,10 @@ const styles = StyleSheet.create({
   calendarDayTextSelected: {
     color: Colors.textPrimary,
     fontWeight: '700',
+  },
+  calendarDayTextToday: {
+    color: Colors.primary,
+    fontWeight: '600',
   },
   calendarDot: {
     width: 6,
@@ -492,5 +525,33 @@ const styles = StyleSheet.create({
   },
   modalGameScore: {
     ...Typography.bodyBold,
+  },
+  modalCondition: {
+    backgroundColor: Colors.surface,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  modalConditionTitle: {
+    ...Typography.caption,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  modalConditionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  modalConditionItem: {
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  modalConditionEmoji: {
+    fontSize: 24,
+  },
+  modalConditionLabel: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
   },
 });

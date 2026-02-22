@@ -14,6 +14,7 @@ export default function GameTransitionScreen() {
   const router = useRouter();
   const { state, advanceGame } = useSession();
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const progressAnim = useRef(new Animated.Value(1)).current;
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const advancedRef = useRef(false);
 
@@ -46,12 +47,19 @@ export default function GameTransitionScreen() {
       useNativeDriver: true,
     }).start();
 
-    timerRef.current = setTimeout(handleAdvance, SESSION_CONFIG.transitionDurationMs);
+    // Countdown progress bar animation
+    progressAnim.setValue(1);
+    Animated.timing(progressAnim, {
+      toValue: 0,
+      duration: SESSION_CONFIG.transitionDurationMs,
+      useNativeDriver: false,
+    }).start();
 
+    timerRef.current = setTimeout(handleAdvance, SESSION_CONFIG.transitionDurationMs);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [fadeAnim, handleAdvance]);
+  }, [fadeAnim, progressAnim, handleAdvance]);
 
   if (!lastResult) {
     return (
@@ -102,6 +110,19 @@ export default function GameTransitionScreen() {
             </View>
           )}
 
+          <View style={styles.progressBarContainer}>
+            <Animated.View
+              style={[
+                styles.progressBarFill,
+                {
+                  width: progressAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0%', '100%'],
+                  }),
+                },
+              ]}
+            />
+          </View>
           <Text style={styles.tapHint}>탭하여 계속</Text>
         </Animated.View>
       </ScreenContainer>
@@ -195,5 +216,18 @@ const styles = StyleSheet.create({
   errorText: {
     ...Typography.body,
     color: Colors.textSecondary,
+  },
+  progressBarContainer: {
+    width: '100%',
+    height: 4,
+    backgroundColor: Colors.surfaceLight,
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginTop: Spacing.md,
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: Colors.primary,
+    borderRadius: 2,
   },
 });

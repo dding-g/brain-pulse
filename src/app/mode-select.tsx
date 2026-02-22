@@ -51,7 +51,7 @@ export default function ModeSelectScreen() {
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <Button title="<" variant="ghost" size="sm" onPress={() => router.back()} />
+        <Button title="←" variant="ghost" size="sm" onPress={() => router.back()} />
         <Text style={styles.title}>모드 선택</Text>
         <View style={styles.placeholder} />
       </View>

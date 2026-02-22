@@ -26,32 +26,32 @@ export default function SettingsScreen() {
 
   function handleResetDifficulty() {
     Alert.alert(
-      'Reset Difficulty',
-      'All difficulty levels will be reset to default. Continue?',
+      '난이도 초기화',
+      '모든 난이도가 기본값으로 초기화됩니다. 계속하시겠습니까?',
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Reset', style: 'destructive', onPress: () => resetDifficulty() },
+        { text: '취소', style: 'cancel' },
+        { text: '초기화', style: 'destructive', onPress: () => resetDifficulty() },
       ],
     );
   }
 
   function handleDeleteAllData() {
     Alert.alert(
-      'Delete All Data',
-      'This will permanently delete all your session history, scores, and settings. This action cannot be undone.',
+      '모든 데이터 삭제',
+      '모든 세션 기록, 점수, 설정이 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: '취소', style: 'cancel' },
         {
-          text: 'Delete All',
+          text: '전체 삭제',
           style: 'destructive',
           onPress: async () => {
             try {
               await clearAllSessions();
               clearAllData();
               logEvent({ name: 'data_cleared' });
-              Alert.alert('Done', 'All data has been deleted.');
+              Alert.alert('완료', '모든 데이터가 삭제되었습니다.');
             } catch {
-              Alert.alert('Error', 'Failed to delete data. Please try again.');
+              Alert.alert('오류', '데이터 삭제에 실패했습니다. 다시 시도해주세요.');
             }
           },
         },
@@ -60,7 +60,7 @@ export default function SettingsScreen() {
   }
 
   function handlePrivacyPolicy() {
-    Alert.alert('Privacy Policy', 'Coming soon');
+    Alert.alert('개인정보 처리방침', '준비 중입니다');
   }
 
   function handleContact() {
@@ -70,14 +70,14 @@ export default function SettingsScreen() {
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <Button title="<" variant="ghost" size="sm" onPress={() => router.back()} />
+        <Button title="←" variant="ghost" size="sm" onPress={() => router.back()} />
         <Text style={styles.title}>설정</Text>
         <View style={styles.placeholder} />
       </View>
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>General</Text>
+          <Text style={styles.sectionTitle}>일반</Text>
 
           <Card>
             <Pressable style={styles.settingRow} onPress={handleLanguageToggle}>
@@ -88,43 +88,43 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Data</Text>
+          <Text style={styles.sectionTitle}>데이터</Text>
 
           <Card>
             <Pressable style={styles.settingRow} onPress={handleResetDifficulty}>
-              <Text style={styles.settingLabel}>Reset Difficulty</Text>
-              <Text style={styles.settingValueDanger}>Reset</Text>
+              <Text style={styles.settingLabel}>난이도 초기화</Text>
+              <Text style={styles.settingValueDanger}>초기화</Text>
             </Pressable>
           </Card>
 
           <Card>
             <Pressable style={styles.settingRow} onPress={handleDeleteAllData}>
-              <Text style={styles.settingLabel}>Delete All Data</Text>
-              <Text style={styles.settingValueDanger}>Delete</Text>
+              <Text style={styles.settingLabel}>모든 데이터 삭제</Text>
+              <Text style={styles.settingValueDanger}>삭제</Text>
             </Pressable>
           </Card>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
+          <Text style={styles.sectionTitle}>정보</Text>
 
           <Card>
             <View style={styles.settingRow}>
-              <Text style={styles.settingLabel}>App Version</Text>
+              <Text style={styles.settingLabel}>앱 버전</Text>
               <Text style={styles.settingValue}>v1.0.0</Text>
             </View>
           </Card>
 
           <Card>
             <Pressable style={styles.settingRow} onPress={handleContact}>
-              <Text style={styles.settingLabel}>Contact</Text>
+              <Text style={styles.settingLabel}>문의하기</Text>
               <Text style={styles.settingValue}>brainpulse@example.com</Text>
             </Pressable>
           </Card>
 
           <Card>
             <Pressable style={styles.settingRow} onPress={handlePrivacyPolicy}>
-              <Text style={styles.settingLabel}>Privacy Policy</Text>
+              <Text style={styles.settingLabel}>개인정보 처리방침</Text>
               <Text style={styles.settingValueNav}>{'>'}</Text>
             </Pressable>
           </Card>
@@ -132,7 +132,7 @@ export default function SettingsScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.version}>BrainPulse v1.0.0</Text>
-          <Text style={styles.footerText}>Made with care for your brain</Text>
+          <Text style={styles.footerText}>당신의 뇌 건강을 위해 만들었습니다</Text>
         </View>
       </ScrollView>
     </ScreenContainer>
